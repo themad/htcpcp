@@ -5,7 +5,7 @@
  "The Hypertext Coffee Pot Control Protocol."
  :group 'applications)
 
-(defconst htcpcp-gpio-path "/home/mad/test/gpio"
+(defconst htcpcp-gpio-path "/sys/class/gpio"
   "The base path of the GPIO sys interface.")
 
 (defcustom htcpcp-brew-start-gpio "17"
@@ -21,9 +21,9 @@
  :group 'htcpcp)
 
 (defun htcpcp--init-gpios ()
- (f-write-text htcpcp-brew-start-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
- (f-write-text htcpcp-brew-brewstate-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
- (f-write-text htcpcp-brew-readystate-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
+; (f-write-text htcpcp-brew-start-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
+; (f-write-text htcpcp-brew-brewstate-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
+; (f-write-text htcpcp-brew-readystate-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
  (f-write-text "out" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "direction"))
  (f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "active_low"))
  (f-write-text "in" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-readystate-gpio "direction"))
@@ -54,10 +54,10 @@ If PROPERTY is non-nil, then return that property."
 (defun htcpcp--send-status (httpcon status)
   "Translates the symbols into a http status and sends it."
   (pcase status 
-    (`brewing ((elnode-send-status httpcon 200 "Brewing")))
-    (`needrefill ((elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!")))
-    (`ready ((elnode-send-status httpcon 200 "Coffeepot ready!")))
-    (_ ((htcpcp--send-teapot httpcon)))
+    (`brewing (elnode-send-status httpcon 200 "Brewing"))
+    (`needrefill (elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!"))
+    (`ready (elnode-send-status httpcon 200 "Coffeepot ready!"))
+    (_ (htcpcp--send-teapot httpcon))
     )
 )
 
@@ -87,9 +87,9 @@ If PROPERTY is non-nil, then return that property."
 (defun htcpcp--do-brew ()
   "Just does the brewing."
   ;; needs to pull the gpio to 1 for at least 100ms
-  (f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-brews-start-gpio "value"))
+  (f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
   (sleep-for 0 200)
-  (f-write-text "0" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-brew-start-gpio "value"))
+  (f-write-text "0" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
 )
 
 (defun htcpcp--handler (httpcon)
@@ -97,7 +97,7 @@ If PROPERTY is non-nil, then return that property."
  (let ((m (elnode-http-method httpcon)))
    (cond ((or (equal m "BREW") (equal m "POST"))
 	  (htcpcp--do-brew)
-	  (htcpcp--send-status httpcon 200 (htcpcp--status)))
+	  (htcpcp--send-status httpcon (htcpcp--status)))
 	 ((equal m "GET")
 	  (let ((s (htcpcp--status)))
 	  (htcpcp--send-status httpcon s)))
@@ -109,12 +109,12 @@ If PROPERTY is non-nil, then return that property."
 (defun* htcpcp-start (&key port (host "localhost"))
   " Start the htcpcp server."
   (interactive
-   (let ((port (read-number "Port: " 8000))
-	 (host (read-string "Host: " "localhost")))
+   (let ((port (read-number "Port: " 8080))
+	 (host (read-string "Host: " "*")))
      (list :port port :host host)))
   (htcpcp--init-gpios)
-  (let ((port (or port 8000))
-	(host (or host "localhost")))
+  (let ((port (or port 8080))
+	(host (or host "*")))
     (elnode-start 'htcpcp--handler :port port :host host)))
 
 (provide 'htcpcp)
