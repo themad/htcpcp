@@ -5,6 +5,12 @@
  "The Hypertext Coffee Pot Control Protocol."
  :group 'applications)
 
+(defconst htcpcp-image-path "/tmp/img.jpg"
+  "Where the image is located")
+
+(defconst htcpcp-coffelevel-path "/tmp/level.txt"
+  "Where the image is located")
+
 (defconst htcpcp-gpio-path "/sys/class/gpio"
   "The base path of the GPIO sys interface.")
 
@@ -19,6 +25,12 @@
 (defcustom htcpcp-brew-readystate-gpio "4"
  "Which GPIO port shows the ready state."
  :group 'htcpcp)
+
+(defun htcpcp-get-coffelevel ()
+  "Gets the level of currently available coffe."
+  (let ((level (f-read-text htcpcp-coffelevel-path)))
+    (substring level 0 2))
+)
 
 (defun htcpcp--init-gpios ()
 ; (f-write-text htcpcp-brew-start-gpio 'utf-8 (format "%s/%s" htcpcp-gpio-path "export"))
@@ -57,18 +69,25 @@ If PROPERTY is non-nil, then return that property."
     (`brewing (elnode-send-status httpcon 200 "Brewing"))
     (`needrefill (elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!"))
     (`ready (elnode-send-status httpcon 200 "Coffeepot ready!"))
+    (`ok (elnode-send-status httpcon 200 "Will do!"))
+    (`ok (elnode-send-status httpcon 200 (concat "Get your coffee, there's still " (htcpcp-get-coffelevel) "% in the pot." ))
     (_ (htcpcp--send-teapot httpcon))
     )
 )
 
+(defun htcpcp--check ()
+  "Checks if we have coffee left."
+  (let ((l (string-to-number (htcpcp-get))))
+    (if (< l 5) 'needrefill 'getcoffe))
+)
 
 (defun htcpcp--status ()
-  "Gets the hardware state. Can be 'ready' 'brewing' or 'refill'.
-   If it is 'teapot', something went wrong."
+  "Gets the hardware state. Can be 'ready 'brewing or 'refill.
+   If it is 'teapot, something went wrong."
   (let ((r (htcpcp--get-ready-state))
 	(b (htcpcp--get-brew-state)))
     (cond ((and (equal r "1") (equal b "0")) 'ready)
-	  ((and (equal r "0") (equal b "0")) 'needrefill)
+	  ((and (equal r "0") (equal b "0")) (htcpcp--check))
 	  ((and (equal r "0") (equal b "1")) 'brewing)
 	  (t 'teapot)
 	  )
@@ -87,17 +106,19 @@ If PROPERTY is non-nil, then return that property."
 (defun htcpcp--do-brew ()
   "Just does the brewing."
   ;; needs to pull the gpio to 1 for at least 100ms
-  (f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
+  (if (equal (htcpcp--status) 'ready)
+  ((f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
   (sleep-for 0 200)
   (f-write-text "0" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
+  'brewing)
+  ('error))
 )
 
 (defun htcpcp--handler (httpcon)
  " the brewing connection handler "
  (let ((m (elnode-http-method httpcon)))
    (cond ((or (equal m "BREW") (equal m "POST"))
-	  (htcpcp--do-brew)
-	  (htcpcp--send-status httpcon (htcpcp--status)))
+	  (htcpcp--send-status httpcon (htcpcp--do-brew)))
 	 ((equal m "GET")
 	  (let ((s (htcpcp--status)))
 	  (htcpcp--send-status httpcon s)))
