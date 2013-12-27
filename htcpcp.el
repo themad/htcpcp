@@ -70,7 +70,7 @@ If PROPERTY is non-nil, then return that property."
     (`needrefill (elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!"))
     (`ready (elnode-send-status httpcon 200 "Coffeepot ready!"))
     (`ok (elnode-send-status httpcon 200 "Will do!"))
-    (`ok (elnode-send-status httpcon 200 (concat "Get your coffee, there's still " (htcpcp-get-coffelevel) "% in the pot." ))
+    (`getcoffee (elnode-send-status httpcon 200 (concat "Get your coffee, there's still " (htcpcp-get-coffelevel) "% in the pot." )))
     (_ (htcpcp--send-teapot httpcon))
     )
 )
@@ -78,7 +78,7 @@ If PROPERTY is non-nil, then return that property."
 (defun htcpcp--check ()
   "Checks if we have coffee left."
   (let ((l (string-to-number (htcpcp-get))))
-    (if (< l 5) 'needrefill 'getcoffe))
+    (if (< l 5) 'needrefill 'getcoffee))
 )
 
 (defun htcpcp--status ()
