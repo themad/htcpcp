@@ -29,7 +29,7 @@
 (defun htcpcp-get-coffelevel ()
   "Gets the level of currently available coffe."
   (let ((level (f-read-text htcpcp-coffelevel-path)))
-    (substring level 0 2))
+    (substring level 0 3))
 )
 
 (defun htcpcp--init-gpios ()
@@ -60,24 +60,24 @@ If PROPERTY is non-nil, then return that property."
 
 (defun htcpcp--send-teapot (httpcon)
   "Sends the I'm a Teapot message."
-  (elnode-send-status httpcon 418 "I'm a teapot!")
+  (elnode-send-status httpcon 418 "I'm a teapot!<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>")
 )
 
 (defun htcpcp--send-status (httpcon status)
   "Translates the symbols into a http status and sends it."
   (pcase status 
-    (`brewing (elnode-send-status httpcon 200 "Brewing"))
-    (`needrefill (elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!"))
-    (`ready (elnode-send-status httpcon 200 "Coffeepot ready!"))
-    (`ok (elnode-send-status httpcon 200 "Will do!"))
-    (`getcoffee (elnode-send-status httpcon 200 (concat "Get your coffee, there's still " (htcpcp-get-coffelevel) "% in the pot." )))
+    (`brewing (elnode-send-status httpcon 200 "Brewing<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>"))
+    (`needrefill (elnode-send-status httpcon 404 "Coffee or water not found, call operator under DECT 2788!<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>"))
+    (`ready (elnode-send-status httpcon 200 "Coffeepot ready!<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>"))
+    (`ok (elnode-send-status httpcon 200 "Will do!<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>"))
+    (`getcoffee (elnode-send-status httpcon 200 (concat "Get your coffee, there's still " (htcpcp-get-coffelevel) "% in the pot.<p><a href=\"https://github.com/0mark/htcpcp\">HTCPCP implementation.</a></p>" )))
     (_ (htcpcp--send-teapot httpcon))
     )
 )
 
 (defun htcpcp--check ()
   "Checks if we have coffee left."
-  (let ((l (string-to-number (htcpcp-get))))
+  (let ((l (string-to-number (htcpcp-get-coffelevel))))
     (if (< l 5) 'needrefill 'getcoffee))
 )
 
@@ -107,11 +107,11 @@ If PROPERTY is non-nil, then return that property."
   "Just does the brewing."
   ;; needs to pull the gpio to 1 for at least 100ms
   (if (equal (htcpcp--status) 'ready)
-  ((f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
+  (progn (f-write-text "1" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
   (sleep-for 0 200)
   (f-write-text "0" 'utf-8 (format "%s/gpio%s/%s" htcpcp-gpio-path htcpcp-brew-start-gpio "value"))
   'brewing)
-  ('error))
+  'error)
 )
 
 (defun htcpcp--handler (httpcon)
